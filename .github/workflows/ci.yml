@@ -50,6 +50,21 @@ jobs:
         run: npm run build
       - name: Run Jest tests
         run: npm test -- --runInBand
+      - name: Smoke test backend HTTP health endpoint
+        run: |
+          npm start > /tmp/rams-backend.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:4000/health > /tmp/rams-health.json; then
+              grep -q '"success":true' /tmp/rams-health.json
+              cat /tmp/rams-health.json
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/rams-backend.log
+          exit 1
 
   frontend:
     runs-on: ubuntu-latest
@@ -73,6 +88,21 @@ jobs:
         run: npm run lint
       - name: Build frontend
         run: npm run build
+      - name: Smoke test frontend preview
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/rams-frontend.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/ > /tmp/rams-index.html; then
+              grep -qi '<!doctype html' /tmp/rams-index.html
+              echo "Frontend preview served the built application successfully."
+              exit 0
+            fi
+            sleep 2
+          done
+          cat /tmp/rams-frontend.log
+          exit 1
 
   secret-scan:
     name: Scan full Git history for secrets
