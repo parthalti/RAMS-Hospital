@@ -8,7 +8,7 @@ This is a release checklist, not a claim that the application has been security-
 - Frontend dependency install and production build passed in that run.
 - A recursive filename scan found only the intended root `.env.example` among env/secret/key-like filenames.
 - The Gitleaks full-history scan passed for commit `01cd25285f7e43e4830d6c915b77859aaad49f86`; no finding was reported by that run. This is evidence from the scanner, not a guarantee that credentials shared elsewhere are safe.
-- The CI workflow now includes backend/frontend dependency audits, frontend type-checking, and HTTP smoke tests for the backend health endpoint and built frontend preview. The latest workflow must finish green before these new checks are marked passed.
+- CI verifies dependency audits, frontend type-checking, and HTTP smoke tests for the backend health endpoint and built frontend preview. The latest expanded run is green.
 - The application has public sample credentials in its README and seed script; treat them as local-demo-only.
 
 ## Before sharing a live demo
@@ -20,7 +20,7 @@ This is a release checklist, not a claim that the application has been security-
 - [ ] Restrict `CORS_ORIGIN` to the intended frontend origin.
 - [ ] Use HTTPS, secure deployment secrets, database least privilege, backups, logs/monitoring, and rate limiting before exposing any public service.
 - [x] Run a dedicated secret scanner over the repository's Git history (Gitleaks passed for the commit above).
-- [ ] Review and resolve any high-severity dependency audit findings from the latest CI run.
+- [x] High-severity dependency audits completed successfully after non-breaking lockfile updates in CI.
 - [ ] Test the login, role restrictions, patient creation, bed recommendation/approval, bed release/reassignment, OT conflict, emergency override, roster, alerts, and audit flows in a running local app.
 - [ ] Capture evidence only from a successful live run; do not describe CI as proof of every end-to-end flow.
 
@@ -31,4 +31,4 @@ This is a release checklist, not a claim that the application has been security-
 - [ ] Production hosting and deployment configuration validated (not currently established by CI alone).
 
 ## Current release status
-**Core CI: passed on earlier commits. Latest expanded CI: pending confirmation. Production readiness: not established.** This project is suitable for an academic evaluation demo with synthetic data after local setup and smoke tests; it should not be used as a clinical system or with real patient data.
+**Latest expanded CI: passed. Local end-to-end user journeys and production readiness: not established.** This project is suitable for an academic evaluation demo with synthetic data after local setup and smoke tests; it should not be used as a clinical system or with real patient data.
