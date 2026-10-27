@@ -145,12 +145,13 @@ cd ../frontend
 npm install
 ```
 
-> **Note on this delivery:** `prisma generate` downloads a small query-engine
-> binary from Prisma's CDN. The sandbox this project was assembled in could not
-> reach that CDN, so the Prisma client here still has placeholder types (you'll
-> see this if you inspect `backend/node_modules/.prisma/client`). This is a
-> one-time step that resolves itself the first time you run `npx prisma generate`
-> with normal internet access — nothing in the application code needs to change.
+> **CI verification:** On 27 Oct 2026, the GitHub Actions workflow completed
+> successfully for the current repository commit. It generated Prisma Client,
+> applied migrations to an isolated PostgreSQL service, built the backend, ran
+> Jest tests, and built the frontend. See the repository's **Actions** tab for
+> the run and `docs/SECURITY_AND_RELEASE_CHECKLIST.md` for the remaining manual
+> release checks. Local setup still requires a working internet connection for
+> dependency and Prisma engine downloads.
 
 ## 9. Running the Application
 
@@ -287,7 +288,7 @@ approve/reject-and-preserve behavior.
 
 ### Continuous integration
 
-The repository includes `.github/workflows/ci.yml`. GitHub Actions installs dependencies, generates the Prisma client, applies migrations to an isolated PostgreSQL service, runs the backend build and Jest suite, and builds the frontend. Push the project to GitHub and open **Actions** to see the real CI result; adding the workflow locally does not mean the pipeline has already passed.
+The repository includes `.github/workflows/ci.yml`. The run for commit `6e3eeefd202129eae95b5efe4f478063efbf24f3` completed successfully on 27 Oct 2026: backend dependency installation, Prisma generation, migrations, backend build, Jest tests, frontend dependency installation, and frontend build all passed. [View the successful CI run](https://github.com/parthalti/RAMS-Hospital/actions/runs/40446163491).
 
 ### Demo account security
 
@@ -333,9 +334,9 @@ user's role; the backend enforces the same restrictions independently.
 
 ## 19. Known Limitations / Honest Notes
 
-- This was built and reviewed in a sandboxed environment without full internet
-  access to Prisma's binary CDN, so `prisma generate` could not be run end-to-end
-  here — do this as your first setup step (section 8) in your own environment.
+- CI has verified Prisma generation, migrations, the backend build, Jest tests,
+  and the frontend build. A green CI run is not a substitute for manually
+  demonstrating all workflows in a browser against your own local database.
 - The engine's ranking logic (bed allocation, OT allocation) is intentionally
   transparent and rule-based rather than a black box, per the specification's
   requirement that recommendations be explainable from actually-evaluated criteria.
