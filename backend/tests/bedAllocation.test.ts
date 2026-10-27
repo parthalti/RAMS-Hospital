@@ -161,6 +161,30 @@ describe('Bed allocation engine & approval workflow', () => {
     await prisma.patient.update({ where: { id: patientId }, data: { admissionStatus: 'PENDING' } });
   });
 
+  it('prevents concurrent manual allocations from claiming the same bed', async () => {
+    const first = await engine.createAllocationRequest({ patientId, resourceType: 'BED', requestedBy: nurseId });
+    const second = await engine.createAllocationRequest({ patientId, resourceType: 'BED', requestedBy: nurseId });
+
+    const results = await Promise.allSettled([
+      engine.manualAllocation(first!.id, availableBedId, adminId, 'Manual allocation race test'),
+      engine.manualAllocation(second!.id, availableBedId, adminId, 'Manual allocation race test')
+    ]);
+
+    expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+    expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+
+    const bed = await prisma.bed.findUnique({ where: { id: availableBedId } });
+    expect(bed!.status).toBe('OCCUPIED');
+    expect(bed!.currentPatientId).toBe(patientId);
+    const allocatedCount = await prisma.allocationRequest.count({
+      where: { id: { in: [first!.id, second!.id] }, status: 'ALLOCATED' }
+    });
+    expect(allocatedCount).toBe(1);
+
+    await prisma.bed.update({ where: { id: availableBedId }, data: { status: 'AVAILABLE', currentPatientId: null } });
+    await prisma.patient.update({ where: { id: patientId }, data: { admissionStatus: 'PENDING' } });
+  });
+
   it('records a manual override while preserving the original engine recommendation', async () => {
     const secondBed = await prisma.bed.create({
       data: { bedNumber: `TB-ALT-${Date.now()}`, ward: 'Test Ward', bedType: 'ICU', departmentId, status: 'AVAILABLE' }
