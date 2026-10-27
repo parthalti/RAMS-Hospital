@@ -40,6 +40,8 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install backend dependencies
         run: npm ci
+      - name: Audit backend dependencies
+        run: npm audit --audit-level=high
       - name: Generate Prisma client
         run: npx prisma generate
       - name: Apply migrations to disposable CI database
@@ -65,6 +67,10 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
+      - name: Audit frontend dependencies
+        run: npm audit --audit-level=high
+      - name: Type-check frontend
+        run: npm run lint
       - name: Build frontend
         run: npm run build
 
