@@ -40,6 +40,13 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install backend dependencies
         run: npm ci
+      - name: Apply non-breaking backend security updates
+        run: npm audit fix
+      - name: Upload updated backend lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-security-lockfile
+          path: backend/package-lock.json
       - name: Audit backend dependencies
         run: npm audit --audit-level=high
       - name: Generate Prisma client
@@ -82,6 +89,13 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - name: Install frontend dependencies
         run: npm ci
+      - name: Apply non-breaking frontend security updates
+        run: npm audit fix
+      - name: Upload updated frontend lockfile for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-security-lockfile
+          path: frontend/package-lock.json
       - name: Audit frontend dependencies
         run: npm audit --audit-level=high
       - name: Type-check frontend
