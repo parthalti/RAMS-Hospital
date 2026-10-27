@@ -8,6 +8,13 @@ approval, emergency override handling, duty rosters, configurable alerts, and a
 complete audit trail. Every important action is backed by a real PostgreSQL database
 — there is no mock data, no frontend-only business logic, and no cosmetic buttons.
 
+## Evaluation resources
+
+- [PBL demo walkthrough and viva questions](docs/PBL_DEMO_AND_VIVA.md)
+- [Security and release checklist](docs/SECURITY_AND_RELEASE_CHECKLIST.md)
+- [Patch review](docs/PATCH_REVIEW.md)
+- [CI workflow results](https://github.com/parthalti/RAMS-Hospital/actions)
+
 ---
 
 ## 1. Project Overview
