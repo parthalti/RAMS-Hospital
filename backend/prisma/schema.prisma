@@ -1,0 +1,463 @@
+// RAMS-Hospital Prisma Schema
+// Resource Allocation and Management System for Multi-Speciality Hospitals
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===================== ENUMS =====================
+
+enum Role {
+  ADMIN
+  DEPARTMENT_HEAD
+  DOCTOR
+  NURSE
+}
+
+enum AutomationRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum BedType {
+  GENERAL
+  ICU
+  ISOLATION
+}
+
+enum BedStatus {
+  AVAILABLE
+  RESERVED
+  OCCUPIED
+  MAINTENANCE
+}
+
+enum OTStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AdmissionStatus {
+  PENDING
+  ADMITTED
+  DISCHARGED
+}
+
+enum BookingStatus {
+  PENDING
+  RECOMMENDED
+  CONFIRMED
+  CANCELLED
+  REJECTED
+  CONFLICT_PENDING_OVERRIDE
+}
+
+enum RosterStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum ShiftType {
+  MORNING
+  EVENING
+  NIGHT
+}
+
+enum ResourceType {
+  BED
+  OT
+}
+
+enum AllocationStatus {
+  PENDING
+  RECOMMENDED
+  APPROVED
+  REJECTED
+  ALLOCATED
+  CANCELLED
+}
+
+enum EngineDecision {
+  RECOMMENDED
+  NO_SUITABLE_RESOURCE
+}
+
+enum AdminDecisionType {
+  APPROVED
+  REJECTED
+  MANUAL_OVERRIDE
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  RESOLVED
+}
+
+enum RosterChangeStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum OverrideStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// ===================== MODELS =====================
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users                User[]
+  beds                 Bed[]
+  operationTheatres    OperationTheatre[]
+  patients             Patient[]
+  otBookings           OTBooking[]
+  rosters              DutyRoster[]
+  staffingRequirements StaffingRequirement[]
+
+  @@map("departments")
+}
+
+model StaffingRequirement {
+  id            String     @id @default(uuid())
+  departmentId  String
+  department    Department @relation(fields: [departmentId], references: [id])
+
+  role          Role
+  requiredCount Int
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([departmentId, role])
+  @@index([departmentId])
+  @@index([role])
+  @@map("staffing_requirements")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  userId       String   @unique // human readable e.g. DOC-001
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  allocationRequests   AllocationRequest[] @relation("RequestedBy")
+  allocationDecisions  AllocationDecision[] @relation("ReviewedBy")
+  otBookingsAsDoctor   OTBooking[]          @relation("DoctorBookings")
+  rostersCreated       DutyRoster[]         @relation("RosterCreatedBy")
+  shifts               Shift[]              @relation("StaffShifts")
+  rosterChangeRequests RosterChangeRequest[] @relation("RequestedByStaff")
+  rosterChangeReviews  RosterChangeRequest[] @relation("ReviewedByHead")
+  emergencyOverridesReviewed EmergencyOverride[] @relation("OverrideReviewedBy")
+  auditLogs            AuditLog[]
+
+  @@index([role])
+  @@index([departmentId])
+  @@map("users")
+}
+
+model Patient {
+  id                String   @id @default(uuid())
+  patientId         String   @unique // human readable e.g. PAT-0001
+  name              String
+  age               Int
+  gender            String
+  medicalCondition  String
+  departmentId      String
+  department        Department @relation(fields: [departmentId], references: [id])
+  priority          Priority   @default(MEDIUM)
+  admissionStatus   AdmissionStatus @default(PENDING)
+  requiredBedType   BedType
+  emergency         Boolean    @default(false)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  beds                Bed[]
+  otBookings          OTBooking[]
+  allocationRequests  AllocationRequest[]
+
+  @@index([departmentId])
+  @@index([admissionStatus])
+  @@map("patients")
+}
+
+model Bed {
+  id               String    @id @default(uuid())
+  bedNumber        String    @unique
+  ward             String
+  bedType          BedType
+  departmentId     String
+  department       Department @relation(fields: [departmentId], references: [id])
+  status           BedStatus  @default(AVAILABLE)
+  currentPatientId String?
+  currentPatient   Patient?   @relation(fields: [currentPatientId], references: [id])
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  @@index([status])
+  @@index([bedType])
+  @@index([departmentId])
+  @@map("beds")
+}
+
+model OperationTheatre {
+  id             String   @id @default(uuid())
+  theatreNumber  String   @unique
+  departmentId   String
+  department     Department @relation(fields: [departmentId], references: [id])
+  status         OTStatus   @default(AVAILABLE)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  bookings OTBooking[]
+
+  @@index([status])
+  @@map("operation_theatres")
+}
+
+model OTBooking {
+  id                 String   @id @default(uuid())
+  bookingId          String   @unique // human readable e.g. OTB-0001
+  patientId          String
+  patient            Patient  @relation(fields: [patientId], references: [id])
+  doctorId           String
+  doctor             User     @relation("DoctorBookings", fields: [doctorId], references: [id])
+  departmentId       String
+  department         Department @relation(fields: [departmentId], references: [id])
+  operationTheatreId String
+  operationTheatre   OperationTheatre @relation(fields: [operationTheatreId], references: [id])
+  date               DateTime // calendar date of the surgery
+  startTime          DateTime // full datetime of start
+  endTime            DateTime // full datetime of end
+  duration           Int      // minutes
+  emergency          Boolean  @default(false)
+  priority           Priority @default(MEDIUM)
+  status             BookingStatus @default(PENDING)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  emergencyOverride EmergencyOverride?
+
+  @@index([operationTheatreId])
+  @@index([status])
+  @@index([date])
+  @@map("ot_bookings")
+}
+
+model EmergencyOverride {
+  id                   String   @id @default(uuid())
+  overrideId           String   @unique // e.g. EO-0001
+  otBookingId          String   @unique
+  otBooking            OTBooking @relation(fields: [otBookingId], references: [id])
+  conflictingBookingId String?
+  conflictDetails      String
+  recommendedAction    String
+  status               OverrideStatus @default(PENDING)
+  reviewedBy           String?
+  reviewer             User?     @relation("OverrideReviewedBy", fields: [reviewedBy], references: [id])
+  reviewedAt           DateTime?
+  decisionReason        String?
+  createdAt            DateTime  @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("emergency_overrides")
+}
+
+model DutyRoster {
+  id           String   @id @default(uuid())
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id])
+  createdBy    String
+  creator      User     @relation("RosterCreatedBy", fields: [createdBy], references: [id])
+  status       RosterStatus @default(DRAFT)
+  weekStarting DateTime
+  publishedAt  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  shifts               Shift[]
+  changeRequests       RosterChangeRequest[]
+
+  @@index([departmentId])
+  @@map("duty_rosters")
+}
+
+model Shift {
+  id        String   @id @default(uuid())
+  rosterId  String
+  roster    DutyRoster @relation(fields: [rosterId], references: [id])
+  staffId   String
+  staff     User     @relation("StaffShifts", fields: [staffId], references: [id])
+  date      DateTime
+  startTime String   // "08:00"
+  endTime   String   // "16:00"
+  shiftType ShiftType
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([staffId, date])
+  @@index([rosterId])
+  @@map("shifts")
+}
+
+model RosterChangeRequest {
+  id           String   @id @default(uuid())
+  rosterId     String
+  roster       DutyRoster @relation(fields: [rosterId], references: [id])
+  requestedBy  String
+  requester    User     @relation("RequestedByStaff", fields: [requestedBy], references: [id])
+  shiftId      String?
+  reason       String
+  status       RosterChangeStatus @default(PENDING)
+  reviewedBy   String?
+  reviewer     User?    @relation("ReviewedByHead", fields: [reviewedBy], references: [id])
+  reviewedAt   DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("roster_change_requests")
+}
+
+model AllocationRequest {
+  id                      String   @id @default(uuid())
+  requestId               String   @unique // e.g. AR-0001
+  patientId               String
+  patient                 Patient  @relation(fields: [patientId], references: [id])
+  requestedBy              String
+  requester                User     @relation("RequestedBy", fields: [requestedBy], references: [id])
+  resourceType             ResourceType
+  requestedResourceId      String?
+  priority                 Priority @default(MEDIUM)
+  emergency                Boolean  @default(false)
+  criteriaEvaluated        Json?
+  status                   AllocationStatus @default(PENDING)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  decisions AllocationDecision[]
+
+  @@index([status])
+  @@index([patientId])
+  @@map("allocation_requests")
+}
+
+model AllocationDecision {
+  id                       String   @id @default(uuid())
+  allocationRequestId      String
+  allocationRequest        AllocationRequest @relation(fields: [allocationRequestId], references: [id])
+  recommendedResourceId    String?
+  recommendationReason     String?
+  criteriaEvaluated        Json?
+  engineDecision           EngineDecision
+  reviewedBy               String?
+  reviewer                 User?    @relation("ReviewedBy", fields: [reviewedBy], references: [id])
+  reviewedAt               DateTime?
+  adminDecision            AdminDecisionType?
+  rejectionReason          String?
+  alternativeResourceId    String?
+  createdAt                DateTime @default(now())
+
+  @@map("allocation_decisions")
+}
+
+model AlertThreshold {
+  id           String   @id @default(uuid())
+  resourceType String   // e.g. "ICU", "ISOLATION", "GENERAL", "OT"
+  metric       String   // e.g. "OCCUPANCY_PERCENT"
+  thresholdValue Float
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([resourceType, metric])
+  @@map("alert_thresholds")
+}
+
+model Alert {
+  id           String   @id @default(uuid())
+  alertType    String
+  resourceType String
+  resourceId   String?
+  message      String
+  threshold    Float?
+  currentValue Float?
+  severity     AlertSeverity
+  status       AlertStatus @default(OPEN)
+  createdAt    DateTime @default(now())
+  resolvedAt   DateTime?
+
+  @@index([status])
+  @@map("alerts")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  details    Json?
+  timestamp  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+model AutomationRun {
+  id                           String             @id @default(uuid())
+  status                       AutomationRunStatus @default(RUNNING)
+  trigger                      String             // MANUAL or BACKGROUND
+
+  startedAt                    DateTime           @default(now())
+  finishedAt                   DateTime?
+
+  resourceAlertsCreated       Int                @default(0)
+  allocationRequestsProcessed Int                @default(0)
+  recommendationsGenerated    Int                @default(0)
+  staleRecommendationsReprocessed Int            @default(0)
+  criticalAlertsCreated       Int                @default(0)
+  noResourceAlertsCreated     Int                @default(0)
+
+  errorMessage                 String?
+
+  createdAt                    DateTime           @default(now())
+
+  @@index([startedAt])
+  @@index([status])
+  @@index([trigger])
+  @@map("automation_runs")
+}
