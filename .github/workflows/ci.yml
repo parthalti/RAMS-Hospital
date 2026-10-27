@@ -43,7 +43,7 @@ jobs:
       - name: Apply non-breaking backend security updates
         run: npm audit fix || true
       - name: Emit updated backend lockfile for repository update
-        run: node -e "const fs=require('fs');const s=fs.readFileSync('package-lock.json','utf8');for(let i=0;i<s.length;i+=30000)console.log('LOCKFILE_CHUNK:'+Math.floor(i/30000)+':'+s.slice(i,i+30000))"
+        run: node -e "const fs=require('fs');const s=JSON.stringify(JSON.parse(fs.readFileSync('package-lock.json','utf8')));for(let i=0;i<s.length;i+=30000)console.log('LOCKFILE_CHUNK:'+Math.floor(i/30000)+':'+s.slice(i,i+30000))"
       - name: Upload updated backend lockfile for review
         uses: actions/upload-artifact@v4
         with:
@@ -95,7 +95,7 @@ jobs:
       - name: Apply non-breaking frontend security updates
         run: npm audit fix || true
       - name: Emit updated frontend lockfile for repository update
-        run: node -e "const fs=require('fs');const s=fs.readFileSync('package-lock.json','utf8');for(let i=0;i<s.length;i+=30000)console.log('LOCKFILE_CHUNK:'+Math.floor(i/30000)+':'+s.slice(i,i+30000))"
+        run: node -e "const fs=require('fs');const s=JSON.stringify(JSON.parse(fs.readFileSync('package-lock.json','utf8')));for(let i=0;i<s.length;i+=30000)console.log('LOCKFILE_CHUNK:'+Math.floor(i/30000)+':'+s.slice(i,i+30000))"
       - name: Upload updated frontend lockfile for review
         uses: actions/upload-artifact@v4
         with:
