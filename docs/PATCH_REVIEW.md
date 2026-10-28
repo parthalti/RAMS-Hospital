@@ -1,29 +1,30 @@
 # RAMS-Hospital Patch Review — 27 October 2026
 
-## Implemented
+## Verified on main
 
-- RH-15: Bed approval claims a bed through a conditional `updateMany` compare-and-set (`id`, `AVAILABLE`, and `currentPatientId: null`). Stale-resource recovery updates the allocation request only while it is still `RECOMMENDED`, avoiding a losing concurrent approval resetting a winning `ALLOCATED` request to `PENDING`.
-- RH-15: Added integration regression coverage for two different requests competing for the same bed and for two concurrent approvals of the same request.
-- RH-16: Extracted a deterministic bed ranking helper. Compatible beds in the patient's department rank first, then bed numbers use natural numeric ordering (for example, A-2 before A-10). Ranking does not mutate the input list.
-- RH-16: Added unit tests for department preference, fallback ordering, natural numeric ordering, and input immutability.
-- Submission ZIP excludes `.env`, `node_modules`, generated `dist`, coverage output, `tsconfig.tsbuildinfo`, and `.git` metadata.
-- Added `.github/workflows/ci.yml` to run backend dependency installation, Prisma generation/migrations, backend build and Jest against an isolated PostgreSQL service, plus the frontend production build. The workflow has been added but has not run on GitHub yet.
-- Added README guidance for CI and warned that seeded demo credentials are local-only.
+- Bed approval uses a conditional updateMany compare-and-set (id, AVAILABLE, and currentPatientId: null) inside a transaction.
+- Approval recovery only returns a request to PENDING while it is still RECOMMENDED, preventing a losing concurrent approval from overwriting a successful ALLOCATED state.
+- Integration tests cover competing approvals for the same bed, concurrent approvals of the same request, stale recommendations, successful approval, and manual override traceability.
+- Bed ranking is deterministic: same-department compatible beds rank first, then natural bed-number ordering; tests cover fallback ordering and input immutability.
+- GitHub Actions CI and the full-history secret scan both passed for main commit 3b7bd3ef2a08fb94c348c294ce14af23916d0b3d. CI includes backend build/tests with Prisma migrations against a disposable PostgreSQL service, frontend type-check/build, and HTTP smoke tests.
+- The release checklist distinguishes automated CI from live end-to-end demo verification and production readiness.
 
-## Verification performed in this environment
+## Change in this branch — awaiting CI verification
 
-- ZIP integrity: verified with `unzip -t`.
-- Archive hygiene: checked archive paths for `.env`, `node_modules`, `dist`, coverage artifacts, and TypeScript build-info artifacts.
-- Secret-pattern scan: no matches for a small set of high-confidence private-key / cloud-key / GitHub-token patterns. This is not a complete secrets audit and does not verify Git history or credential rotation.
-- Standalone ranking helper: compiled with the globally available TypeScript compiler and ran a Node assertion for same-department preference, natural numeric ordering, and input immutability; passed.
+- Manual bed allocation previously performed a read-then-unconditional update, allowing two concurrent transactions to race after both read the bed as available.
+- This branch replaces that update with an atomic conditional claim (AVAILABLE and currentPatientId: null) and returns a conflict if the claim affects anything other than one row.
+- Added a PostgreSQL integration regression test that submits two concurrent manual allocations for the same bed and expects exactly one successful allocation.
 
-## Not verified
+## Verification boundaries
 
-- Full backend TypeScript build and Jest suite: dependency installation (`npm ci`) repeatedly timed out, leaving an incomplete `node_modules` tree.
-- Prisma client generation and PostgreSQL integration tests: not run. Use a disposable PostgreSQL test database only; do not run integration tests against the development or production database.
-- Frontend build / browser walkthrough: not verified in this environment.
-- Secrets: the cleaned archive contains no `.env` file, but that does not prove previously exposed credentials were rotated or removed from repository history. Rotate any real credentials and inspect repository history separately.
+- The regression test requires the disposable PostgreSQL integration-test database configured by CI. It must not run against a development or production database.
+- The new branch change is not considered verified until its CI run passes.
+- A green CI run does not replace the live browser walkthrough for login/roles, patient creation, bed release/reassignment, OT conflicts, emergency override, rosters, alerts, and audit logs.
+- A secret scan is evidence about the scanned repository history, not proof that any previously shared credential was rotated. Rotate any real credential that may have been exposed.
+- Submission archives must exclude .env, secrets, node_modules, generated dist, coverage output, TypeScript build info, .git, and real patient data.
 
-## Jira handling
+## Jira tracking
 
-RH-15, RH-16, and RH-17 remain In Progress until required verification and any credential rotation are confirmed. No issue was marked Done.
+- RH-15 tracks bed-allocation concurrency and remains open until this branch's regression test passes in CI.
+- RH-16 tracks alignment between priority evaluation and actual ranking behavior; do not close without reviewing the policy text and ranking tests.
+- RH-17 tracks submission archive hygiene and potential credential exposure; close only after the archive is inspected and any real credentials are confirmed rotated.

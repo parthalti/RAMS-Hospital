@@ -263,10 +263,16 @@ export async function manualAllocation(
       if (!bed || bed.status !== 'AVAILABLE') {
         throw ApiError.conflict('Selected bed is not currently available.');
       }
-      const updatedBed = await tx.bed.update({
-        where: { id: bed.id },
+      // Atomic compare-and-set: a pre-read alone is not enough because another
+      // transaction may claim this bed before the update executes.
+      const claim = await tx.bed.updateMany({
+        where: { id: bed.id, status: 'AVAILABLE', currentPatientId: null },
         data: { status: 'OCCUPIED', currentPatientId: request.patientId }
       });
+      if (claim.count !== 1) {
+        throw ApiError.conflict('Selected bed is no longer available. Refresh the allocation recommendation and try again.');
+      }
+      const updatedBed = await tx.bed.findUniqueOrThrow({ where: { id: bed.id } });
       await tx.patient.update({ where: { id: request.patientId }, data: { admissionStatus: 'ADMITTED' } });
       await tx.allocationRequest.update({ where: { id: request.id }, data: { status: 'ALLOCATED' } });
 
